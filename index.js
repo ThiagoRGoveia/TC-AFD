@@ -13,7 +13,10 @@ function buildTransitions(arrayOfTransitions, states) {
     const transitions = {}
     for (const transition of arrayOfTransitions) {
         const [from, key ,to] = transition
-        transitions[key] = states[parseInt(to)]
+        if (!transitions[key]) {
+            transitions[key] = []
+        }
+        transitions[key].push(states[parseInt(to)])
     }
     return transitions
 }
@@ -55,22 +58,35 @@ const states = buildStates(numberOfStates, acceptanceStates, transitionStates)
 // open file to write
 const outputFile = fs.openSync('output.txt', 'w')
 
-inputs.forEach(input => {
-    const chars = Array.from(input)
-    try {
-        let currentState = states[0]
-        chars.forEach(char => {
-            currentState = currentState.transitions[char]
-            if (!currentState) {
-                throw new Error()
-            }
-        })
-        if (currentState.isAcceptance) {
-            fs.writeSync(outputFile, 'aceita\n')
-        } else {
-            throw new Error()
+const traverse = (state, symbols) => {
+    const [symbol, ...rest] = symbols
+    if (symbol === '-' && !state.isAcceptance) return false
+    if (symbol === '-' && state.isAcceptance) return true
+    if (!symbol && state.isAcceptance) return true
+    if (!symbol && !state.isAcceptance) return false
+    if (state.transitions[symbol]) {
+        let isAcceptance = false
+        for (const nextState of state.transitions[symbol]) {
+            isAcceptance = traverse(nextState, rest)
+            if (isAcceptance) return true
         }
-    } catch (e) {
-        fs.writeSync(outputFile, 'rejeita\n')
+    }
+    if (state.transitions['-']) {
+        let isAcceptance = false
+        for (const nextState of state.transitions['-']) {
+            isAcceptance = traverse(nextState, symbols)
+            if (isAcceptance) return true
+        }
+    }
+    if (!state.transitions[symbol]) return false
+}
+
+inputs.forEach(input => {
+    const symbols = Array.from(input)
+    let isAcceptance = traverse(states[0], symbols)
+    if (isAcceptance) {
+        fs.writeSync(outputFile, `${input} aceita\n`)
+    } else {
+        fs.writeSync(outputFile, `${input} rejeita\n`)
     }
 })
